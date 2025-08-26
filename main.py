@@ -40,7 +40,7 @@ def load_model():
     global YOLO
     if YOLO is None:
         from ultralytics import YOLO as _YOLO
-        YOLO = _YOLO("yolov8m.pt")  # tiny, fast. swap to yolov8m.pt for accuracy
+        YOLO = _YOLO("yolov8n.pt")  # tiny, fast. swap to yolov8m.pt for accuracy
     return YOLO
 
 # Map YOLO class names -> normalized ingredient names (extend over time)

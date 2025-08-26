@@ -1,9 +1,9 @@
 """
-FridgeScan – a tiny webapp that:
+SnapCook – a tiny webapp that:
 1) uploads a fridge photo
 2) detects ingredients with YOLOv8 (Ultralytics)
 3) cleans the ingredient list
-4) suggests recipes (local heuristics OR Spoonacular/Edamam if API key provided)
+4) suggests recipes to cook (local heuristics OR Spoonacular/Edamam if API key provided)
 
 Run locally:
   python -m venv .venv && source .venv/bin/activate   # (on Windows: .venv\\Scripts\\activate)
@@ -193,8 +193,8 @@ def spoonacular_recipes(ingredients: List[str], k: int = 5) -> List[Dict]:
 
 # ----------------- Streamlit UI -----------------
 
-st.set_page_config(page_title="FridgeScan", page_icon="🥬", layout="wide")
-st.title("🥬 FridgeScan – What's in my fridge?")
+st.set_page_config(page_title="SnapCook", page_icon="🥬", layout="wide")
+st.title("🥬 SnapCook – What's in my fridge?")
 st.caption("Upload a photo, detect ingredients, and get recipe ideas. Built with Streamlit + YOLOv8.")
 
 with st.sidebar:

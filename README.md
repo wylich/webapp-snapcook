@@ -16,11 +16,15 @@ SnapCook is a simple webapp that helps you figure out what meals you can cook wi
    source .venv/bin/activate   # Windows: .venv\\Scripts\\activate
    pip install -r requirements.txt
    ```
-3. Run the app
-   ```bash
-   streamlit run app.py
+3. Create a `.env` file in the project root to store your API keys (never commit this file):
    ```
-4. Open the provided local URL in your browser
+   OPENAI_API_KEY=sk-xxxxxxx
+   ```
+4. Run the app
+   ```bash
+   streamlit run main.py
+   ```
+5. Open the provided local URL in your browser
 
 ## Roadmap
 - Manual editing of detected ingredients

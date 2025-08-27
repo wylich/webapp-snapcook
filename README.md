@@ -27,7 +27,7 @@ SnapCook is a simple webapp that helps you figure out what meals you can cook wi
 5. Open the provided local URL in your browser
 
 ## Roadmap
-- Manual editing of detected ingredients
+- Manual editing of detected and missing ingredients
 - More accurate food recognition
 - Recipe database integration
 - Support for multiple fridge photos

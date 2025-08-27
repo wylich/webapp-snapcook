@@ -12,5 +12,5 @@ wheels/
 # API-Keys
 .env
 
-# YOLO
-yolov*
+# UV lock
+uv.lock

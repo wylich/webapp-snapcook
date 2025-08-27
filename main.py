@@ -1,206 +1,105 @@
 """
 SnapCook – a tiny webapp that:
 1) uploads a fridge photo
-2) detects ingredients with YOLOv8 (Ultralytics)
-3) cleans the ingredient list
-4) suggests recipes to cook (local heuristics OR Spoonacular/Edamam if API key provided)
+2) detects ingredients with OpenAI API
+3) presents the ingredient list and approximate amount
+4) suggests recipes to cook (local heuristics OR OpenAI API if API key provided)
 
 Run locally:
   python -m venv .venv && source .venv/bin/activate   # (on Windows: .venv\\Scripts\\activate)
-  pip install -U streamlit ultralytics pillow requests python-dotenv
-  streamlit run app.py
-
-Optional:
-  # If you want higher accuracy for produce, install:
-  # pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121  (or cpu wheels)
+  pip install -U streamlit ultralytics pillow requests python-dotenv openai
+  create .env with OpenAI API key: OPENAI_API_KEY=sk-xxxxxxx
+  streamlit run main.py
 
 Environment:
-  # create a .env file if you want to use an external recipe API
-  SPOONACULAR_KEY=your_api_key_here
-  EDAMAM_APP_ID=xxx
-  EDAMAM_APP_KEY=yyy
+  # created an .env file for external ingredient recognition and recipe API
 
 Notes:
-  - The default model is YOLOv8n pretrained on COCO; it recognizes many foods/containers.
-  - Results will be approximate; you can later fine-tune on a custom “fridge” dataset.
+  - The default model is ChatGPT.
+  - Results will be approximate; we can later fine-tune OpenAI API structured model output.
 """
 
-import os
-import io
+import os, base64
 import time
 from typing import List, Dict, Tuple
 
-import streamlit as st
 from PIL import Image
+import streamlit as st
 
-# Lazy import so Streamlit can start fast
-YOLO = None
+from openai import OpenAI
+from dotenv import load_dotenv
+from pydantic import BaseModel
 
-def load_model():
-    global YOLO
-    if YOLO is None:
-        from ultralytics import YOLO as _YOLO
-        YOLO = _YOLO("yolov8n.pt")  # tiny, fast. swap to yolov8m.pt for accuracy
-    return YOLO
+load_dotenv()  # reads the .env file
+api_key = os.getenv("OPENAI_API_KEY")   
+client = OpenAI(api_key=api_key)
 
-# Map YOLO class names -> normalized ingredient names (extend over time)
-CLASS_TO_INGREDIENT = {
-    "apple": "apple",
-    "banana": "banana",
-    "broccoli": "broccoli",
-    "carrot": "carrot",
-    "orange": "orange",
-    "pizza": "leftover pizza",
-    "cake": "cake",
-    "bottle": "bottle (unspecified)",
-    "wine glass": "wine (opened)",
-    "cup": "yogurt/pudding cup (unspecified)",
-    "bowl": "bowl (unspecified)",
-    "sandwich": "sandwich",
-    "hot dog": "sausage",
-    "donut": "donut",
-    "egg": "eggs",
-    "knife": None,
-    "spoon": None,
-    "fork": None,
-}
+class Ingredient(BaseModel):
+    name: str
+    amount: str # one cup, two tablespoons, three pieces, etc.
+    confidence: float
 
-# Simple synonyms/normalizer
-SYNONYMS = {
-    "bell pepper": "capsicum",
-    "courgette": "zucchini",
-}
-
-BASIC_PANTRY = {"salt", "pepper", "oil", "water", "butter"}
+class IngredientList(BaseModel):
+    ingredients: List[Ingredient]
 
 
-def dedupe_and_clean(items: List[str]) -> List[str]:
-    out = []
-    seen = set()
-    for x in items:
-        if not x:
-            continue
-        x = x.strip().lower()
-        x = SYNONYMS.get(x, x)
-        if x in ("bottle (unspecified)", "bowl (unspecified)", "yogurt/pudding cup (unspecified)"):
-            # skip containers unless confident
-            continue
-        if x and x not in seen:
-            seen.add(x)
-            out.append(x)
-    return out
+def openai_extract_ingredients(pil_image, user_hint: str = "") -> list[dict]:
+    """
+    Sends the image to OpenAI and returns [{'name': str, 'amount': str, 'confidence': float?}, ...]
+    """
+    # Encode image to base64 data URL (PNG)
+    from io import BytesIO
+    buffered = BytesIO()
+    pil_image.save(buffered, format="PNG")
+    img_str_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+    data_url = f"data:image/png;base64,{img_str_b64}"
+
+    # System + user instruction
+    sys = (
+        "You are a careful kitchen assistant. Identify edible ingredients visibly present in the photo. "
+        "Avoid guessing brands or flavors you cannot see. Prefer generic ingredient names (e.g., 'milk', 'eggs', 'broccoli'). "
+        "Ignore utensils and containers unless their contents are clearly visible. Return JSON only."
+    )
+    if user_hint:
+        sys += f" User hints: {user_hint}"
+
+    response = client.responses.parse(
+        model = "gpt-5-nano",
+        instructions = sys,
+        input=[{
+            "role": "user",
+            "content": [
+                {"type": "input_text", "text": "List ingredients you can see and their approximate amount."},
+                {"type": "input_image", "image_url": data_url, "detail": "low"}, # low = 85 tokens budget (512x512 px)
+            ],
+        }],
+        text_format=IngredientList,
+    )
+    return(response.output_parsed)
 
 
-def detect_ingredients(image: Image.Image, conf: float = 0.35) -> Tuple[List[str], Image.Image]:
-    """Run YOLO detection and return ingredient list + annotated image."""
-    model = load_model()
-    results = model.predict(image, conf=conf, verbose=False)
-    if not results:
-        return [], image
-
-    r = results[0]
-    labels = []
-    for box in r.boxes:
-        cls_id = int(box.cls[0].item())
-        score = float(box.conf[0].item())
-        name = r.names[cls_id]
-        mapped = CLASS_TO_INGREDIENT.get(name, name)  # fallback to raw class name
-        if mapped:
-            labels.append(mapped)
-    # Render annotated image
-    annotated = r.plot()  # numpy array (BGR)
-    annotated_img = Image.fromarray(annotated[:, :, ::-1])
-    return dedupe_and_clean(labels), annotated_img
+def detect_ingredients(image: Image.Image) -> Tuple[List[str]]:
+    """
+    Keep the same signature as UI expects.
+    Returns (ingredients: List[str]).
+    """
+    findings = openai_extract_ingredients(image)
+    return findings
 
 
 # --- Recipe suggestion engines ---
-import requests
-from dotenv import load_dotenv
-load_dotenv()
 
-SPOON_KEY = os.getenv("SPOONACULAR_KEY")
-EDAMAM_ID = os.getenv("EDAMAM_APP_ID")
-EDAMAM_KEY = os.getenv("EDAMAM_APP_KEY")
-
-LOCAL_RECIPES = [
-    {
-        "title": "Simple Veggie Stir-Fry",
-        "needs": {"broccoli", "carrot", "garlic", "soy sauce"},
-        "optional": {"onion", "ginger"},
-        "instructions": "Stir-fry aromatics, add chopped veggies, splash soy + water, cook till crisp-tender.",
-    },
-    {
-        "title": "Cheesy Omelette",
-        "needs": {"eggs"},
-        "optional": {"cheese", "spinach"},
-        "instructions": "Beat eggs, cook gently, add fillings, fold and serve.",
-    },
-    {
-        "title": "Banana Pancakes",
-        "needs": {"banana", "eggs", "flour"},
-        "optional": {"milk"},
-        "instructions": "Mash banana, whisk with eggs and flour, fry small pancakes.",
-    },
-]
-
-
-def score_recipe(recipe: Dict, have: set) -> float:
-    needs = recipe["needs"]
-    optional = recipe.get("optional", set())
-    have_needs = len(needs & have)
-    missing_needs = len(needs - have)
-    have_opt = len(optional & have)
-    # prioritize covering needs; small bonus for optionals
-    return have_needs * 10 + have_opt * 2 - missing_needs * 20
-
-
-def suggest_local_recipes(ingredients: List[str], k: int = 5) -> List[Dict]:
-    have = set(ingredients) | BASIC_PANTRY
-    scored = sorted(LOCAL_RECIPES, key=lambda r: score_recipe(r, have), reverse=True)
-    # filter out recipes that miss more than half of needed items
-    out = []
-    for r in scored:
-        needs = r["needs"]
-        if len(needs & have) / max(1, len(needs)) >= 0.5:
-            out.append(r)
-    return out[:k]
-
-
-def spoonacular_recipes(ingredients: List[str], k: int = 5) -> List[Dict]:
-    if not SPOON_KEY:
-        return []
-    try:
-        q = ",".join(ingredients)
-        url = f"https://api.spoonacular.com/recipes/findByIngredients?ingredients={q}&number={k}&apiKey={SPOON_KEY}"
-        resp = requests.get(url, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        results = []
-        for item in data:
-            results.append({
-                "title": item.get("title"),
-                "needs": set(),
-                "optional": set(),
-                "instructions": "Open link for instructions.",
-                "id": item.get("id"),
-                "image": item.get("image"),
-                "missedIngredientCount": item.get("missedIngredientCount"),
-            })
-        return results
-    except Exception:
-        return []
 
 
 # ----------------- Streamlit UI -----------------
 
 st.set_page_config(page_title="SnapCook", page_icon="🥬", layout="wide")
 st.title("🥬 SnapCook – What's in my fridge?")
-st.caption("Upload a photo, detect ingredients, and get recipe ideas. Built with Streamlit + YOLOv8.")
+st.caption("Upload a photo, detect ingredients, and get recipe ideas. Built with Streamlit + ChatGPT.")
 
 with st.sidebar:
     st.header("Settings")
-    conf = st.slider("Detection confidence", 0.1, 0.8, 0.35, 0.05)
-    use_external = st.checkbox("Use external recipe API (if configured)", value=False)
+    user_hint = st.text_input("Optional hint (e.g., 'top shelf is sauces')", "")
 
 uploaded = st.file_uploader("Upload a fridge photo", type=["jpg", "jpeg", "png"])
 
@@ -214,27 +113,26 @@ if uploaded:
     with st.spinner("Detecting ingredients..."):
         try:
             start = time.time()
-            ingredients, annotated = detect_ingredients(img, conf=conf)
+            output = detect_ingredients(img)
             dt = time.time() - start
         except Exception as e:
             st.error(f"Detection failed: {e}")
-            ingredients, annotated = [], img
-
-    col2.subheader("Detections")
-    col2.image(annotated, use_container_width=True)
+            output
 
     st.subheader("Ingredients found")
-    if ingredients:
-        st.write(", ".join(ingredients))
+    if output and hasattr(output, "ingredients"):
+        for item in output.ingredients:
+            # name, amount, confidence = item
+            st.write(f"- {item.name}: {item.amount} (confidence: {item.confidence:.2f})")
     else:
         st.info("No obvious ingredients detected. Try a clearer photo, or fine-tune the model later.")
 
     st.subheader("Recipe suggestions")
     recipes = []
-    if use_external:
-        recipes = spoonacular_recipes(ingredients)
-    if not recipes:
-        recipes = suggest_local_recipes(ingredients)
+    # if use_external:
+    #     recipes = spoonacular_recipes(ingredients)
+    # if not recipes:
+    #     recipes = suggest_local_recipes(ingredients)
 
     if recipes:
         for r in recipes:
@@ -262,19 +160,20 @@ with st.expander("How it works / Roadmap"):
     st.markdown(
         """
         **Pipeline**
-        1. **Detection**: Ultralytics YOLOv8n on your uploaded image. We map raw classes → ingredients.
-        2. **Cleaning**: Deduplicate, drop containers, normalize names.
-        3. **Recipes**: Either local heuristics (offline) or Spoonacular/Edamam (if API keys are set).
+        1. **Detection**: ChatGPT on your uploaded image. We map raw classes → ingredients.
+        2. **Recipes**: Either local heuristics (offline) or Spoonacular/Edamam (if API keys are set).
 
         **Accuracy tips**
         - Use a close, well-lit photo.
-        - Train or fine-tune a custom model on fridge items you care about (Ultralytics makes this straightforward).
+        - Train or fine-tune a custom model on fridge items you care about.
         - Add more mappings to `CLASS_TO_INGREDIENT` and more local recipes over time.
 
         **Next steps**
-        - 
-        - Track quantities and freshness dates with another photo or OCR from labels.
+        - Manual editing of detected and missing ingredients.
+        - Separate frontend from backend (e.g., React for UI, FastAPI for API).
         - Persist sessions and favorite recipes (SQLite + SQLModel/FastAPI backend).
+        - Introduce streaming for real-time ingredient detection and recipe suggestions.
         - Multi-image support to scan shelves individually and merge results.
+        - Track quantities and freshness dates with another photo or OCR from labels.
         """
     )

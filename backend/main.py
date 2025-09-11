@@ -123,6 +123,60 @@ LOCAL_RECIPES = [
         "optional": ["cucumber", "carrot", "cheese"],
         "instructions": "Chop vegetables, mix together, add dressing of choice.",
     },
+    {
+        "title": "Pan-Seared Salmon",
+        "needs": ["salmon"],
+        "optional": ["lemon", "garlic", "butter", "herbs"],
+        "instructions": "Season salmon fillets, heat oil in pan, cook skin-side down 4 mins, flip and cook 3 mins more. Finish with lemon and herbs.",
+    },
+    {
+        "title": "Creamy Mushroom Risotto",
+        "needs": ["mushroom", "rice"],
+        "optional": ["milk", "cheese", "onion", "garlic", "butter"],
+        "instructions": "Sauté mushrooms and onions, add rice and stir. Gradually add warm milk/broth, stirring constantly until creamy. Finish with cheese.",
+    },
+    {
+        "title": "Roasted Potatoes",
+        "needs": ["potatoes"],
+        "optional": ["garlic", "herbs", "butter"],
+        "instructions": "Cut potatoes into chunks, toss with oil and seasoning. Roast at 425°F for 25-30 mins until golden and crispy.",
+    },
+    {
+        "title": "Salmon and Potato Bake",
+        "needs": ["salmon", "potatoes"],
+        "optional": ["milk", "cheese", "herbs"],
+        "instructions": "Layer sliced potatoes in baking dish, place salmon on top. Pour milk over, season, and bake at 400°F for 30-35 mins.",
+    },
+    {
+        "title": "Mushroom Cream Sauce",
+        "needs": ["mushroom", "milk"],
+        "optional": ["garlic", "butter", "herbs"],
+        "instructions": "Sauté sliced mushrooms until golden, add garlic, pour in milk and simmer until thickened. Season with herbs.",
+    },
+    {
+        "title": "Tropical Pineapple Salsa",
+        "needs": ["pineapple"],
+        "optional": ["cucumber", "red chili pepper", "lime"],
+        "instructions": "Dice pineapple and mix with chopped cucumber and chili. Add lime juice and let flavors meld for 15 mins.",
+    },
+    {
+        "title": "Creamy Mashed Potatoes",
+        "needs": ["potatoes", "milk"],
+        "optional": ["butter", "cheese"],
+        "instructions": "Boil potatoes until tender, drain and mash. Gradually add warm milk and butter until smooth and creamy.",
+    },
+    {
+        "title": "Pineapple Glazed Salmon",
+        "needs": ["salmon", "pineapple"],
+        "optional": ["garlic", "soy sauce"],
+        "instructions": "Make glaze with pineapple juice and soy sauce. Brush on salmon and bake at 400°F for 12-15 mins until flaky.",
+    },
+    {
+        "title": "Mushroom and Potato Gratin",
+        "needs": ["mushroom", "potatoes", "milk"],
+        "optional": ["cheese", "garlic", "herbs"],
+        "instructions": "Layer sliced potatoes and mushrooms, pour seasoned milk over layers. Top with cheese and bake until golden.",
+    },
 ]
 
 def suggest_recipes(ingredients: List[str]) -> List[Recipe]:

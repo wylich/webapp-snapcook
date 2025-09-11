@@ -8,9 +8,25 @@ wheels/
 
 # Virtual environments
 .venv
+venv/
 
 # API-Keys
 .env
 
 # UV lock
 uv.lock
+
+# FastAPI specific
+.pytest_cache/
+htmlcov/
+.coverage
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.dbed files

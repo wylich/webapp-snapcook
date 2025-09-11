@@ -139,13 +139,13 @@ LOCAL_RECIPES = [
         "title": "Roasted Potatoes",
         "needs": ["potatoes"],
         "optional": ["garlic", "herbs", "butter"],
-        "instructions": "Cut potatoes into chunks, toss with oil and seasoning. Roast at 425°F for 25-30 mins until golden and crispy.",
+        "instructions": "Cut potatoes into chunks, toss with oil and seasoning. Roast at 220°C (425°F) for 25-30 mins until golden and crispy.",
     },
     {
         "title": "Salmon and Potato Bake",
         "needs": ["salmon", "potatoes"],
         "optional": ["milk", "cheese", "herbs"],
-        "instructions": "Layer sliced potatoes in baking dish, place salmon on top. Pour milk over, season, and bake at 400°F for 30-35 mins.",
+        "instructions": "Layer sliced potatoes in baking dish, place salmon on top. Pour milk over, season, and bake at 200°C (400°F) for 30-35 mins.",
     },
     {
         "title": "Mushroom Cream Sauce",
@@ -169,7 +169,7 @@ LOCAL_RECIPES = [
         "title": "Pineapple Glazed Salmon",
         "needs": ["salmon", "pineapple"],
         "optional": ["garlic", "soy sauce"],
-        "instructions": "Make glaze with pineapple juice and soy sauce. Brush on salmon and bake at 400°F for 12-15 mins until flaky.",
+        "instructions": "Make glaze with pineapple juice and soy sauce. Brush on salmon and bake at 200°C (400°F) for 12-15 mins until flaky.",
     },
     {
         "title": "Mushroom and Potato Gratin",
